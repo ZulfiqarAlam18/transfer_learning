@@ -4,7 +4,10 @@ const bodyParser = require('body-parser');
 const axios = require('axios');
 
 const app = express();
-app.use(bodyParser.json());
+
+app.use(express.json({ type: '*/*' }));
+app.use(express.urlencoded({ extended: true }));
+
 
 // Configuration from environment variables
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
@@ -76,9 +79,14 @@ async function removeUserFromGroup(groupId, phoneNumber) {
   }
 }
 
-// Webhook endpoint - Receive messages
 app.post('/webhook', async (req, res) => {
+
+console.log('🔥 WEBHOOK HIT');
+console.log('Headers:', req.headers['content-type']);
+console.log('Raw body:', req.body);
+
   try {
+    console.log('Received webhook event');
     // Debug logging to verify delivery and payload shape
     try {
       console.log('Incoming webhook payload:', JSON.stringify(req.body));
@@ -90,6 +98,9 @@ app.post('/webhook', async (req, res) => {
     const changes = entry?.changes?.[0];
     const value = changes?.value;
     const messageData = value?.messages?.[0];
+
+    console.log('Message Data:', messageData);
+
 
     if (!messageData) {
       return res.sendStatus(200);
@@ -108,62 +119,11 @@ app.post('/webhook', async (req, res) => {
 
     const groupId = messageData.context?.group_id || undefined;
 
-    // Store group info (best effort)
-    if (value?.metadata?.display_phone_number && value?.metadata?.phone_number_id) {
-      const pnid = value.metadata.phone_number_id;
-      if (!groupInfo[pnid]) {
-        groupInfo[pnid] = { id: pnid, name: value.metadata.display_phone_number };
-      }
-    }
 
     console.log(`Received message from ${from}: ${text ?? '[non-text message]'}`);
+    
+    
 
-    // Check if user is banned
-    if (bannedUsers.includes(from)) {
-      console.log(`Ignored message from banned user: ${from}`);
-      return res.sendStatus(200);
-    }
-
-    // Check if message is from admin
-    const isAdmin = ADMINS.includes(from);
-
-    // Handle admin commands
-    if (isAdmin && text?.startsWith('/')) {
-      await handleAdminCommand(from, text, groupId);
-      return res.sendStatus(200);
-    }
-
-    // Increase message count for user
-    dailyCount[from] = (dailyCount[from] || 0) + 1;
-    console.log(`User ${from} sent message number ${dailyCount[from]}/${MESSAGE_LIMIT}`);
-
-    // Check if user exceeded limit
-    if (dailyCount[from] > MESSAGE_LIMIT) {
-      await sendMessage(
-        from,
-        `⚠️ You have reached today's limit of ${MESSAGE_LIMIT} messages. You will be removed from the group.`
-      );
-
-      // Remove user from group if groupId is available
-      if (groupId) {
-        await removeUserFromGroup(groupId, from);
-      }
-
-      return res.sendStatus(200);
-    }
-
-    // Warn user when approaching limit
-    if (dailyCount[from] === MESSAGE_LIMIT) {
-      await sendMessage(
-        from,
-        `⚠️ Warning: You have sent ${MESSAGE_LIMIT} messages today. This is your limit. Next message will result in removal.`
-      );
-    } else if (dailyCount[from] === MESSAGE_LIMIT - 1) {
-      await sendMessage(
-        from,
-        `ℹ️ You have sent ${dailyCount[from]} messages. You have ${MESSAGE_LIMIT - dailyCount[from]} message remaining today.`
-      );
-    }
 
     res.sendStatus(200);
   } catch (error) {
@@ -171,6 +131,108 @@ app.post('/webhook', async (req, res) => {
     res.sendStatus(500);
   }
 });
+
+// Webhook endpoint - Receive messages
+// app.post('/webhook', async (req, res) => {
+
+// console.log('🔥 WEBHOOK HIT');
+// console.log('Headers:', req.headers['content-type']);
+// console.log('Raw body:', req.body);
+
+//   try {
+//     console.log('Received webhook event');
+//     // Debug logging to verify delivery and payload shape
+//     try {
+//       console.log('Incoming webhook payload:', JSON.stringify(req.body));
+//     } catch (e) {
+//       console.log('Incoming webhook payload (non-JSON printable)');
+//     }
+
+//     const entry = req.body.entry?.[0];
+//     const changes = entry?.changes?.[0];
+//     const value = changes?.value;
+//     const messageData = value?.messages?.[0];
+
+//     if (!messageData) {
+//       return res.sendStatus(200);
+//     }
+
+//     const from = messageData.from; // User phone number
+//     // Support multiple message types: text, button, interactive
+//     let text = messageData.text?.body;
+//     if (!text && messageData.type === 'button') {
+//       text = messageData.button?.text;
+//     }
+//     if (!text && messageData.type === 'interactive') {
+//       const interactive = messageData.interactive;
+//       text = interactive?.button_reply?.title || interactive?.list_reply?.title || interactive?.nfm_reply?.response_json || interactive?.caption;
+//     }
+
+//     const groupId = messageData.context?.group_id || undefined;
+
+//     // Store group info (best effort)
+//     if (value?.metadata?.display_phone_number && value?.metadata?.phone_number_id) {
+//       const pnid = value.metadata.phone_number_id;
+//       if (!groupInfo[pnid]) {
+//         groupInfo[pnid] = { id: pnid, name: value.metadata.display_phone_number };
+//       }
+//     }
+
+//     console.log(`Received message from ${from}: ${text ?? '[non-text message]'}`);
+
+//     // Check if user is banned
+//     if (bannedUsers.includes(from)) {
+//       console.log(`Ignored message from banned user: ${from}`);
+//       return res.sendStatus(200);
+//     }
+
+//     // Check if message is from admin
+//     const isAdmin = ADMINS.includes(from);
+
+//     // Handle admin commands
+//     if (isAdmin && text?.startsWith('/')) {
+//       await handleAdminCommand(from, text, groupId);
+//       return res.sendStatus(200);
+//     }
+
+//     // Increase message count for user
+//     dailyCount[from] = (dailyCount[from] || 0) + 1;
+//     console.log(`User ${from} sent message number ${dailyCount[from]}/${MESSAGE_LIMIT}`);
+
+//     // Check if user exceeded limit
+//     if (dailyCount[from] > MESSAGE_LIMIT) {
+//       await sendMessage(
+//         from,
+//         `⚠️ You have reached today's limit of ${MESSAGE_LIMIT} messages. You will be removed from the group.`
+//       );
+
+//       // Remove user from group if groupId is available
+//       if (groupId) {
+//         await removeUserFromGroup(groupId, from);
+//       }
+
+//       return res.sendStatus(200);
+//     }
+
+//     // Warn user when approaching limit
+//     if (dailyCount[from] === MESSAGE_LIMIT) {
+//       await sendMessage(
+//         from,
+//         `⚠️ Warning: You have sent ${MESSAGE_LIMIT} messages today. This is your limit. Next message will result in removal.`
+//       );
+//     } else if (dailyCount[from] === MESSAGE_LIMIT - 1) {
+//       await sendMessage(
+//         from,
+//         `ℹ️ You have sent ${dailyCount[from]} messages. You have ${MESSAGE_LIMIT - dailyCount[from]} message remaining today.`
+//       );
+//     }
+
+//     res.sendStatus(200);
+//   } catch (error) {
+//     console.error('Error in webhook:', error);
+//     res.sendStatus(500);
+//   }
+// });
 
 // Handle admin commands
 async function handleAdminCommand(from, text, groupId) {
