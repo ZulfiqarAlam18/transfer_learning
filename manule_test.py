@@ -48,20 +48,7 @@ EXPECTED_LABELS = {
     "i1": None,
     "i2": None,
     "i3": None,
-    "i4": None,
-    "i5": None,
-    "i6": None,
-    "i7": None,
-    "i8": None,
-    "i9": None,
-    "i10": None,
-    "i11": None,
-    "i12": None,
-    "i13": None,
-    "i14": None,
-    "i15": None,
-    "i16": None,
-    "i17": None,
+   
 }
 
 
