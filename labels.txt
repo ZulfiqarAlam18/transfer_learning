@@ -1,0 +1,5 @@
+no_finger
+non_finger_object
+other_finger
+thumb_fingerprint
+thumb_nail
